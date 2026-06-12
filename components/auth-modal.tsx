@@ -7,9 +7,10 @@ interface AuthModalProps {
   isOpen: boolean
   onClose: () => void
   theme: 'light' | 'dark'
+  onAuthSuccess?: (userData: { email: string; name: string }) => void
 }
 
-export function AuthModal({ isOpen, onClose, theme }: AuthModalProps): JSX.Element | null {
+export function AuthModal({ isOpen, onClose, theme, onAuthSuccess }: AuthModalProps): JSX.Element | null {
   const [isSignUp, setIsSignUp] = useState<boolean>(false)
   const [email, setEmail] = useState<string>('')
   const [password, setPassword] = useState<string>('')
@@ -25,7 +26,14 @@ export function AuthModal({ isOpen, onClose, theme }: AuthModalProps): JSX.Eleme
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault()
-    console.log(isSignUp ? 'Sign up' : 'Sign in', { email, password, fullName })
+    // Hardcoded sign-in - simulate successful authentication
+    if (onAuthSuccess) {
+      onAuthSuccess({
+        email: email || 'user@example.com',
+        name: fullName || 'User'
+      })
+    }
+    onClose()
   }
 
   return (
