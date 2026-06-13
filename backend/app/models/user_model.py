@@ -42,3 +42,13 @@ def create_user(email: str, name: str, password_hash: str):
         }
     )
     return find_user_by_id(str(result.inserted_id))
+
+
+def update_user_profile(user_id: str, *, name: str | None = None):
+    now = datetime.utcnow()
+    updates = {"updated_at": now}
+    if name is not None:
+        updates["name"] = name.strip()
+
+    _users_collection().update_one({"_id": ObjectId(user_id)}, {"$set": updates})
+    return find_user_by_id(user_id)

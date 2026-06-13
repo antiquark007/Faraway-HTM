@@ -22,6 +22,7 @@ import {
 
 import { useTheme } from '@/app/theme-provider'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/toast'
 import { apiRequest } from '@/lib/auth'
 
 type DashboardSection = 'home' | 'games' | 'leaderboard' | 'profile'
@@ -47,7 +48,6 @@ type DashboardOverview = {
   games: Array<{
     title: string
     detail: string
-    meta: string
     route: string
     icon: string
   }>
@@ -57,6 +57,30 @@ type DashboardOverview = {
     points: number
     is_current_user?: boolean
   }>
+  profile: {
+    user_id: string
+    goal: string
+    user_type: string
+    focus_areas: string[]
+    arena_points: number
+    completed_games: number
+    streak_days: number
+    weekly_progress: number
+    leaderboard_rank: number
+  }
+}
+
+type UpdatedProfileResponse = {
+  user?: DashboardOverview['user']
+  profile?: {
+    goal: string
+    user_type: string
+    focus_areas: string[]
+    arena_points: number
+    completed_games: number
+    streak_days: number
+    weekly_progress: number
+  }
 }
 
 const navItems: Array<{ id: DashboardSection; label: string; icon: typeof Home }> = [
@@ -85,10 +109,19 @@ function titleCase(value: string): string {
 export default function Dashboard() {
   const router = useRouter()
   const { theme } = useTheme()
+  const { toast } = useToast()
   const [dashboard, setDashboard] = useState<DashboardOverview | null>(null)
   const [activeSection, setActiveSection] = useState<DashboardSection>('home')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [profileDraft, setProfileDraft] = useState({
+    name: '',
+    goal: '',
+    userType: '',
+    focusAreas: '',
+  })
 
   useEffect(() => {
     const token = localStorage.getItem('authToken')
@@ -116,6 +149,77 @@ export default function Dashboard() {
       mounted = false
     }
   }, [router])
+
+  useEffect(() => {
+    if (!dashboard) return
+    setProfileDraft({
+      name: dashboard.user.name || '',
+      goal: dashboard.user.goal || '',
+      userType: dashboard.user.user_type || '',
+      focusAreas: dashboard.focus_areas.join(', '),
+    })
+  }, [dashboard])
+
+  const handleSaveProfile = async (): Promise<void> => {
+    const token = localStorage.getItem('authToken')
+    if (!token || !dashboard) return
+
+    setIsSavingProfile(true)
+    try {
+      const parsedFocusAreas = profileDraft.focusAreas
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+
+      const result = await apiRequest<UpdatedProfileResponse>('/api/dashboard/profile', {
+        method: 'PUT',
+        token,
+        body: {
+          name: profileDraft.name.trim(),
+          goal: profileDraft.goal.trim(),
+          userType: profileDraft.userType.trim(),
+          problems: parsedFocusAreas,
+          focusAreas: parsedFocusAreas,
+        },
+      })
+
+      setDashboard((current) => current ? {
+        ...current,
+        user: result.user ? { ...current.user, ...result.user } : {
+          ...current.user,
+          name: profileDraft.name.trim() || current.user.name,
+          goal: profileDraft.goal.trim() || current.user.goal,
+          user_type: profileDraft.userType.trim() || current.user.user_type,
+          problems: parsedFocusAreas,
+        },
+        focus_areas: result.profile?.focus_areas ?? parsedFocusAreas,
+        stats: result.profile ? {
+          ...current.stats,
+          arena_points: result.profile.arena_points,
+          completed_games: result.profile.completed_games,
+          streak_days: result.profile.streak_days,
+          weekly_progress: result.profile.weekly_progress,
+          focus_area_count: (result.profile.focus_areas ?? parsedFocusAreas).length,
+        } : current.stats,
+        profile: current.profile,
+      } : current)
+
+      toast({
+        title: 'Profile updated',
+        description: 'Your profile was saved to the backend.',
+        variant: 'success',
+      })
+      setIsEditingProfile(false)
+    } catch (saveError) {
+      toast({
+        title: 'Profile update failed',
+        description: saveError instanceof Error ? saveError.message : 'Unable to save changes.',
+        variant: 'error',
+      })
+    } finally {
+      setIsSavingProfile(false)
+    }
+  }
 
   const colors = useMemo(() => {
     const isDark = theme === 'dark'
@@ -281,9 +385,8 @@ export default function Dashboard() {
           { key: game.title, className: 'rounded-[1.25rem] border p-6 transition-transform hover:-translate-y-1', style: { backgroundColor: colors.panel, borderColor: colors.border } },
           createElement(
             'div',
-            { className: 'mb-6 flex items-center justify-between' },
+            { className: 'mb-6 flex items-center justify-start' },
             createElement('div', { className: 'flex h-12 w-12 items-center justify-center rounded-[1rem]', style: { backgroundColor: colors.primarySoft, color: colors.primary } }, createElement(Icon, { size: 24 })),
-            createElement('span', { className: 'rounded-full px-3 py-1 text-xs font-semibold', style: { backgroundColor: colors.soft, color: colors.muted } }, game.meta)
           ),
           createElement('h2', { className: 'text-xl font-semibold', style: { color: colors.text } }, game.title),
           createElement('p', { className: 'mt-3 min-h-12 text-sm leading-6', style: { color: colors.muted } }, game.detail),
@@ -352,29 +455,80 @@ export default function Dashboard() {
         createElement('div', { className: 'mx-auto flex h-24 w-24 items-center justify-center rounded-[1.5rem] text-3xl font-semibold', style: { backgroundColor: colors.primary, color: '#fffefb' } }, user.name.charAt(0).toUpperCase()),
         createElement('h2', { className: 'mt-5 text-2xl font-semibold', style: { color: colors.text } }, user.name),
         createElement('p', { className: 'mt-2 text-sm', style: { color: colors.muted } }, user.user_type ? titleCase(user.user_type) : 'Not set'),
-        createElement(Button, { className: 'mt-6 h-10 rounded-[0.9rem]', variant: 'outline', type: 'button' }, createElement(Settings, { size: 17 }), 'Edit Profile')
+        createElement(Button, { className: 'mt-6 h-10 rounded-[0.9rem]', variant: 'outline', type: 'button', onClick: () => setIsEditingProfile(true) }, createElement(Settings, { size: 17 }), 'Edit Profile')
       ),
       createElement(
         'div',
         { className: 'rounded-[1.25rem] border p-6', style: { backgroundColor: colors.panel, borderColor: colors.border } },
-        createElement('h2', { className: 'text-xl font-semibold', style: { color: colors.text } }, 'Profile Details'),
         createElement(
           'div',
-          { className: 'mt-5 grid gap-4 sm:grid-cols-2' },
-          ...[
-            ['Goal', user.goal || 'Not set'],
-            ['Background', user.user_type ? titleCase(user.user_type) : 'Not set'],
-            ['Weekly Points', dashboard.stats.arena_points > 0 ? `${dashboard.stats.arena_points}` : 'No points yet'],
-            ['Completed Games', dashboard.stats.completed_games > 0 ? `${dashboard.stats.completed_games}` : 'No games yet'],
-          ].map(([label, value]) =>
-            createElement(
+          { className: 'flex items-center justify-between gap-3' },
+          createElement('h2', { className: 'text-xl font-semibold', style: { color: colors.text } }, 'Profile Details'),
+          createElement(Button, { type: 'button', variant: 'outline', className: 'h-9 rounded-[0.9rem]', onClick: () => setIsEditingProfile(true) }, 'Update')
+        ),
+        isEditingProfile
+          ? createElement(
               'div',
-              { key: label, className: 'rounded-[1rem] p-4', style: { backgroundColor: colors.soft } },
-              createElement('p', { className: 'text-sm', style: { color: colors.subtle } }, label),
-              createElement('p', { className: 'mt-2 font-semibold', style: { color: colors.text } }, value || 'Not set')
+              { className: 'mt-5 space-y-4' },
+              createElement('div', null,
+                createElement('label', { className: 'mb-2 block text-sm font-medium', style: { color: colors.subtle } }, 'Name'),
+                createElement('input', {
+                  value: profileDraft.name,
+                  onChange: (e) => setProfileDraft((prev) => ({ ...prev, name: e.target.value })),
+                  className: 'h-11 w-full rounded-[0.9rem] border bg-transparent px-4 text-sm outline-none',
+                  style: { borderColor: colors.border, color: colors.text },
+                })
+              ),
+              createElement('div', null,
+                createElement('label', { className: 'mb-2 block text-sm font-medium', style: { color: colors.subtle } }, 'Goal'),
+                createElement('textarea', {
+                  value: profileDraft.goal,
+                  onChange: (e) => setProfileDraft((prev) => ({ ...prev, goal: e.target.value })),
+                  className: 'min-h-24 w-full rounded-[0.9rem] border bg-transparent px-4 py-3 text-sm outline-none',
+                  style: { borderColor: colors.border, color: colors.text },
+                })
+              ),
+              createElement('div', null,
+                createElement('label', { className: 'mb-2 block text-sm font-medium', style: { color: colors.subtle } }, 'Background'),
+                createElement('input', {
+                  value: profileDraft.userType,
+                  onChange: (e) => setProfileDraft((prev) => ({ ...prev, userType: e.target.value })),
+                  className: 'h-11 w-full rounded-[0.9rem] border bg-transparent px-4 text-sm outline-none',
+                  style: { borderColor: colors.border, color: colors.text },
+                })
+              ),
+              createElement('div', null,
+                createElement('label', { className: 'mb-2 block text-sm font-medium', style: { color: colors.subtle } }, 'Focus Areas'),
+                createElement('input', {
+                  value: profileDraft.focusAreas,
+                  onChange: (e) => setProfileDraft((prev) => ({ ...prev, focusAreas: e.target.value })),
+                  placeholder: 'communication, system-design, confidence',
+                  className: 'h-11 w-full rounded-[0.9rem] border bg-transparent px-4 text-sm outline-none',
+                  style: { borderColor: colors.border, color: colors.text },
+                })
+              ),
+              createElement('div', { className: 'flex gap-3 pt-2' },
+                createElement(Button, { type: 'button', className: 'h-10 rounded-[0.9rem]', onClick: handleSaveProfile, disabled: isSavingProfile }, isSavingProfile ? 'Saving...' : 'Save Changes'),
+                createElement(Button, { type: 'button', className: 'h-10 rounded-[0.9rem]', variant: 'outline', onClick: () => setIsEditingProfile(false), disabled: isSavingProfile }, 'Cancel')
+              )
             )
-          )
-        )
+          : createElement(
+              'div',
+              { className: 'mt-5 grid gap-4 sm:grid-cols-2' },
+              ...[
+                ['Goal', user.goal || 'Not set'],
+                ['Background', user.user_type ? titleCase(user.user_type) : 'Not set'],
+                ['Weekly Points', dashboard.stats.arena_points > 0 ? `${dashboard.stats.arena_points}` : 'No points yet'],
+                ['Completed Games', dashboard.stats.completed_games > 0 ? `${dashboard.stats.completed_games}` : 'No games yet'],
+              ].map(([label, value]) =>
+                createElement(
+                  'div',
+                  { key: label, className: 'rounded-[1rem] p-4', style: { backgroundColor: colors.soft } },
+                  createElement('p', { className: 'text-sm', style: { color: colors.subtle } }, label),
+                  createElement('p', { className: 'mt-2 font-semibold', style: { color: colors.text } }, value || 'Not set')
+                )
+              )
+            )
       )
     )
 

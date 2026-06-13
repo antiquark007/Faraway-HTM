@@ -1,7 +1,7 @@
 from flask import jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from app.services.dashboard_service import get_dashboard_overview, get_dashboard_profile, save_dashboard_profile, record_activity
+from app.services.dashboard_service import get_dashboard_overview, get_dashboard_profile, save_dashboard_profile, record_activity, update_dashboard_profile
 
 
 @jwt_required()
@@ -27,20 +27,17 @@ def update_profile():
     user_id = get_jwt_identity()
     payload = request.get_json(silent=True) or {}
 
-    result = save_dashboard_profile(
+    result = update_dashboard_profile(
         user_id,
         {
+            "name": payload.get("name", payload.get("fullName")),
             "goal": payload.get("goal", ""),
             "user_type": payload.get("userType", payload.get("user_type", "")),
             "problems": payload.get("problems", []),
-            "streak_days": payload.get("streakDays", payload.get("streak_days")),
-            "arena_points": payload.get("arenaPoints", payload.get("arena_points")),
-            "completed_games": payload.get("completedGames", payload.get("completed_games")),
-            "weekly_progress": payload.get("weeklyProgress", payload.get("weekly_progress")),
-            "leaderboard_rank": payload.get("leaderboardRank", payload.get("leaderboard_rank")),
+            "focus_areas": payload.get("focusAreas", payload.get("focus_areas", [])),
         },
     )
-    return jsonify({"profile": result}), 200
+    return jsonify(result), 200
 
 
 @jwt_required()
