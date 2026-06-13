@@ -24,6 +24,8 @@ import { useTheme } from '@/app/theme-provider'
 import { Button } from '@/components/ui/button'
 import { apiRequest } from '@/lib/auth'
 
+const INTRO_DURATION_MS = 10000
+
 interface Question {
   id: number
   text: string
@@ -88,6 +90,8 @@ function buildFocusAreas(totalFillerWords: number, avgLength: number, validAnswe
 export default function Game1Page() {
   const router = useRouter()
   const { theme } = useTheme()
+  const [showIntro, setShowIntro] = useState<boolean>(true)
+  const [introProgress, setIntroProgress] = useState<number>(0)
 
   // Game Phases: 'setup' | 'gameplay' | 'post-session'
   const [phase, setPhase] = useState<'setup' | 'gameplay' | 'post-session'>('setup')
@@ -136,6 +140,23 @@ export default function Game1Page() {
   // Refs for Timers
   const prepIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const answerIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    const startedAt = Date.now()
+    const timer = setTimeout(() => {
+      setIntroProgress(100)
+      setShowIntro(false)
+    }, INTRO_DURATION_MS)
+    const progressTimer = setInterval(() => {
+      const elapsed = Date.now() - startedAt
+      setIntroProgress(Math.min(100, Math.floor((elapsed / INTRO_DURATION_MS) * 100)))
+    }, 80)
+
+    return () => {
+      clearTimeout(timer)
+      clearInterval(progressTimer)
+    }
+  }, [])
 
   // Load Speech Recognition support client-side
   useEffect(() => {
@@ -857,6 +878,68 @@ export default function Game1Page() {
   return createElement(
     'main',
     { className: 'min-h-screen', style: { background: colors.background } },
+    showIntro
+      ? createElement(
+          'div',
+          { className: 'coffee-intro-screen fixed inset-0 z-50 overflow-hidden', style: { backgroundColor: '#120805' } },
+          createElement('iframe', {
+            src: 'https://www.youtube.com/embed/LxwbOVZk8aM?autoplay=1&mute=0&controls=0&playsinline=1&rel=0&modestbranding=1&start=0',
+            title: 'Coffee with Interview Arena music',
+            className: 'pointer-events-none absolute h-px w-px opacity-0',
+            style: { left: -9999, top: -9999 },
+            allow: 'autoplay; encrypted-media; speaker-selection',
+            tabIndex: -1,
+            'aria-hidden': true,
+          }),
+          createElement('img', {
+            src: '/coffee-with-interview-arena.png',
+            alt: '',
+            className: 'coffee-intro-backdrop absolute inset-0 h-full w-full select-none object-cover',
+            draggable: false,
+            'aria-hidden': true,
+          }),
+          createElement('div', { className: 'absolute inset-0', style: { background: 'radial-gradient(circle at center, rgba(255, 174, 75, 0.08), rgba(18, 8, 5, 0.24) 44%, rgba(7, 3, 2, 0.82) 100%)' } }),
+          createElement('div', { className: 'coffee-intro-glow absolute left-1/2 top-1/2 h-[65vmin] w-[65vmin] -translate-x-1/2 -translate-y-1/2 rounded-full' }),
+          createElement('div', { className: 'coffee-intro-grain absolute inset-0 opacity-25' }),
+          createElement(
+            'div',
+            { className: 'relative flex min-h-screen flex-col items-center justify-between gap-5 px-5 py-6 text-center sm:px-8 sm:py-8' },
+            createElement('div', { className: 'flex w-full justify-center pt-2' },
+              createElement('div', { className: 'rounded-full border px-4 py-2 text-[0.68rem] font-bold uppercase tracking-[0.32em] text-amber-100 shadow-lg backdrop-blur-md', style: { borderColor: 'rgba(255, 211, 130, 0.32)', backgroundColor: 'rgba(20, 8, 3, 0.42)' } },
+                'Coffee with Interview Arena'
+              )
+            ),
+            createElement('div', { className: 'coffee-intro-logo-wrap flex min-h-0 w-full flex-1 items-center justify-center' },
+              createElement('img', {
+                src: '/coffee-with-interview-arena.png',
+                alt: 'Coffee with Interview Arena',
+                className: 'coffee-intro-logo h-auto max-h-[62vh] w-full max-w-6xl select-none object-contain',
+                draggable: false,
+              })
+            ),
+            createElement(
+              'div',
+              { className: 'coffee-intro-panel w-full max-w-2xl rounded-[1rem] border p-5 shadow-2xl backdrop-blur-md sm:p-6', style: { borderColor: 'rgba(255, 211, 130, 0.38)', backgroundColor: 'rgba(21, 8, 3, 0.72)' } },
+              createElement('div', { className: 'mb-4 flex items-center justify-between gap-4 text-amber-100' },
+                createElement('div', { className: 'flex items-center gap-2 text-xs font-bold uppercase tracking-[0.3em]' },
+                  createElement(Volume2, { size: 16 }),
+                  'Loading Arena'
+                ),
+                createElement('div', { className: 'coffee-intro-percent tabular-nums text-xl font-black tracking-wider sm:text-2xl' },
+                  `${introProgress}%`
+                )
+              ),
+              createElement('div', { className: 'h-2.5 overflow-hidden rounded-full border bg-black/55 p-[2px]', style: { borderColor: 'rgba(255, 211, 130, 0.28)' } },
+                createElement('div', { className: 'coffee-intro-progress h-full rounded-full', style: { background: 'linear-gradient(90deg, #ff4f00 0%, #ff9d2f 42%, #ffe09a 72%, #ff4f00 100%)' } })
+              ),
+              createElement('div', { className: 'mt-4 flex flex-wrap items-center justify-between gap-3 text-sm font-semibold text-amber-50' },
+                createElement('span', null, introProgress < 35 ? 'Warming up the coffee room...' : introProgress < 70 ? 'Loading interview segments...' : 'Preparing your arena...'),
+                createElement('span', { className: 'text-xs uppercase tracking-[0.24em] text-amber-200/80' }, 'Please wait')
+              )
+            )
+          )
+        )
+      : null,
     createElement('div', { className: 'mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8' },
       // Header Page info
       createElement('header', { className: 'mb-6 rounded-[1.25rem] border p-4 backdrop-blur-xl', style: { backgroundColor: colors.panel, borderColor: colors.border } },

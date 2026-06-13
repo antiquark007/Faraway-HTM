@@ -162,8 +162,127 @@
   stroke: var(--mute) !important;
 }
 
+@keyframes coffeeIntroReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+    filter: saturate(0.82) brightness(0.72);
+  }
+  34% {
+    opacity: 1;
+    filter: saturate(1.08) brightness(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: saturate(1.04) brightness(1);
+  }
+}
+
+@keyframes coffeeIntroFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.012);
+  }
+}
+
+@keyframes coffeeIntroBackdrop {
+  0%, 100% {
+    transform: scale(1.08);
+    opacity: 0.42;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.58;
+  }
+}
+
+@keyframes coffeeIntroGlow {
+  0%, 100% {
+    opacity: 0.42;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+  50% {
+    opacity: 0.72;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+@keyframes coffeeIntroProgress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes coffeeIntroPanel {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes coffeeIntroPercentPulse {
+  0%, 100% {
+    text-shadow: 0 0 10px rgba(255, 196, 94, 0.3);
+  }
+  50% {
+    text-shadow: 0 0 18px rgba(255, 196, 94, 0.82);
+  }
+}
+
+.coffee-intro-screen {
+  isolation: isolate;
+}
+
+.coffee-intro-backdrop {
+  animation: coffeeIntroBackdrop 10s ease-in-out both;
+  filter: blur(22px) saturate(1.15) brightness(0.62);
+}
+
+.coffee-intro-glow {
+  animation: coffeeIntroGlow 5s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(255, 180, 81, 0.34), rgba(255, 79, 0, 0.12) 42%, transparent 70%);
+}
+
+.coffee-intro-grain {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 12%);
+  background-size: 100% 6px, 28px 28px;
+  mix-blend-mode: screen;
+}
+
+.coffee-intro-logo {
+  animation: coffeeIntroReveal 900ms cubic-bezier(0.16, 1, 0.3, 1) both, coffeeIntroFloat 3.4s ease-in-out 900ms infinite;
+  filter: drop-shadow(0 26px 38px rgba(0, 0, 0, 0.55));
+}
+
+.coffee-intro-panel {
+  animation: coffeeIntroPanel 650ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both;
+}
+
+.coffee-intro-progress {
+  animation: coffeeIntroProgress 10s linear both;
+  box-shadow: 0 0 18px rgba(255, 157, 47, 0.72);
+  transform-origin: left center;
+}
+
+.coffee-intro-percent {
+  animation: coffeeIntroPercentPulse 1.2s ease-in-out infinite;
+  color: #ffe09a;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-slide-up, .animate-fade-in, .heart--lost {
+  .animate-slide-up, .animate-fade-in, .heart--lost, .coffee-intro-backdrop, .coffee-intro-glow, .coffee-intro-logo, .coffee-intro-panel, .coffee-intro-progress, .coffee-intro-percent {
     animation: none;
   }
 }

@@ -41,15 +41,39 @@ export default function Home() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false)
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false)
   const [mounted, setMounted] = useState<boolean>(false)
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const { theme } = useTheme()
 
   useEffect(() => {
     setMounted(true)
+    const storedToken = localStorage.getItem('authToken')
+    const storedUser = localStorage.getItem('authUser')
+    if (!storedToken || !storedUser) {
+      localStorage.removeItem('authUser')
+      return
+    }
+
+    try {
+      setAuthUser(JSON.parse(storedUser) as AuthUser)
+    } catch (e) {
+      console.error('Failed to parse stored auth user:', e)
+      localStorage.removeItem('authUser')
+    }
   }, [])
 
   const handleSignInClick = (): void => setIsAuthModalOpen(true)
   const handleCloseAuthModal = (): void => setIsAuthModalOpen(false)
-  const handleAuthSuccess = async (_userData: AuthUser): Promise<void> => {
+  const handleSignOut = (): void => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('authUser')
+    localStorage.removeItem('userOnboardingData')
+    setAuthUser(null)
+    setIsOnboardingOpen(false)
+    router.push('/')
+  }
+
+  const handleAuthSuccess = async (userData: AuthUser): Promise<void> => {
+    setAuthUser(userData)
     const token = localStorage.getItem('authToken')
     if (!token) {
       setIsOnboardingOpen(true)
@@ -121,7 +145,7 @@ export default function Home() {
   const shell = createElement(
     'main',
     { className: 'min-h-screen', style: { background: pageBackground } },
-    createElement(Navbar, { onSignInClick: handleSignInClick }),
+    createElement(Navbar, { onSignInClick: handleSignInClick, authUser, onSignOut: handleSignOut }),
     createElement(Hero, { onStartClick: handleSignInClick }),
     createElement(Stats, null),
     createElement(Features, null),

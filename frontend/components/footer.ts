@@ -1,9 +1,9 @@
 'use client'
 
 import { createElement } from 'react'
-import { Zap } from 'lucide-react'
 
 import { useTheme } from '@/app/theme-provider'
+import { BrandLogo } from '@/components/brand-logo'
 
 export function Footer() {
   const { theme } = useTheme()
@@ -19,10 +19,7 @@ export function Footer() {
     createElement('div', { className: 'mx-auto max-w-6xl' },
       createElement('div', { className: 'mb-16 grid grid-cols-1 gap-12 md:grid-cols-4' },
         createElement('div', null,
-          createElement('div', { className: 'mb-4 flex items-center gap-2' },
-            createElement('div', { className: 'flex h-6 w-6 items-center justify-center rounded-md text-sm font-bold', style: { backgroundColor: '#ff4f00', color: '#fffefb' } }, createElement(Zap, { size: 14 })),
-            createElement('span', { className: 'font-semibold', style: { color: textColor } }, 'Interview Arena')
-          ),
+          createElement('div', { className: 'mb-4' }, createElement(BrandLogo, { textColor, compact: true })),
           createElement('p', { className: 'text-sm', style: linkStyle }, 'Gamified AI-powered interview preparation.')
         ),
         createElement('div', null, createElement('h4', { className: 'mb-4 font-semibold', style: { color: textColor } }, 'Product'), createElement('ul', { className: 'space-y-2 text-sm' }, createElement('li', null, link('Features')), createElement('li', null, link('Pricing')), createElement('li', null, link('Blog')))),

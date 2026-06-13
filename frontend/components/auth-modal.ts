@@ -10,7 +10,7 @@ interface AuthModalProps {
   isOpen: boolean
   onClose: () => void
   theme: 'light' | 'dark'
-  onAuthSuccess?: (userData: AuthResponse['user']) => void
+  onAuthSuccess?: (userData: AuthResponse['user']) => void | Promise<void>
 }
 
 export function AuthModal({ isOpen, onClose, theme, onAuthSuccess }: AuthModalProps) {

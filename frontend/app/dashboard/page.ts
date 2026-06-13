@@ -12,6 +12,7 @@ import {
   LogOut,
   Medal,
   Play,
+  ChevronDown,
   Settings,
   Sparkles,
   Target,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react'
 
 import { useTheme } from '@/app/theme-provider'
+import { BrandLogo } from '@/components/brand-logo'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/toast'
 import { apiRequest } from '@/lib/auth'
@@ -116,6 +118,7 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
   const [profileDraft, setProfileDraft] = useState({
     name: '',
     goal: '',
@@ -159,6 +162,10 @@ export default function Dashboard() {
       focusAreas: dashboard.focus_areas.join(', '),
     })
   }, [dashboard])
+
+  useEffect(() => {
+    setIsAccountMenuOpen(false)
+  }, [activeSection])
 
   const handleSaveProfile = async (): Promise<void> => {
     const token = localStorage.getItem('authToken')
@@ -244,6 +251,12 @@ export default function Dashboard() {
     localStorage.removeItem('authUser')
     localStorage.removeItem('userOnboardingData')
     router.push('/')
+  }
+
+  const handleGoToDashboard = (): void => {
+    setActiveSection('home')
+    setIsAccountMenuOpen(false)
+    router.push('/dashboard')
   }
 
   if (loading) {
@@ -380,14 +393,26 @@ export default function Dashboard() {
       { className: 'grid gap-5 md:grid-cols-2 xl:grid-cols-4' },
       ...dashboard.games.map((game) => {
         const Icon = iconMap[game.icon] ?? Gamepad2
+        const isCoffeeGame = game.title === 'Coffee with Interview Arena'
         return createElement(
           'article',
           { key: game.title, className: 'rounded-[1.25rem] border p-6 transition-transform hover:-translate-y-1', style: { backgroundColor: colors.panel, borderColor: colors.border } },
-          createElement(
-            'div',
-            { className: 'mb-6 flex items-center justify-start' },
-            createElement('div', { className: 'flex h-12 w-12 items-center justify-center rounded-[1rem]', style: { backgroundColor: colors.primarySoft, color: colors.primary } }, createElement(Icon, { size: 24 })),
-          ),
+          isCoffeeGame
+            ? createElement(
+                'div',
+                { className: 'mb-6 flex justify-center' },
+                createElement('img', {
+                  src: '/coffee-with-interview-arena.png',
+                  alt: game.title,
+                  className: 'h-40 w-full max-w-[19rem] object-contain',
+                  draggable: false,
+                })
+              )
+            : createElement(
+                'div',
+                { className: 'mb-6 flex items-center justify-start' },
+                createElement('div', { className: 'flex h-12 w-12 items-center justify-center rounded-[1rem]', style: { backgroundColor: colors.primarySoft, color: colors.primary } }, createElement(Icon, { size: 24 })),
+              ),
           createElement('h2', { className: 'text-xl font-semibold', style: { color: colors.text } }, game.title),
           createElement('p', { className: 'mt-3 min-h-12 text-sm leading-6', style: { color: colors.muted } }, game.detail),
           createElement(
@@ -552,15 +577,13 @@ export default function Dashboard() {
           'div',
           { className: 'flex h-full flex-col' },
           createElement(
-            'div',
-            { className: 'flex items-center gap-3 px-2 py-3' },
-            createElement('div', { className: 'flex h-10 w-10 items-center justify-center rounded-[0.85rem]', style: { backgroundColor: colors.primary, color: '#fffefb' } }, createElement(Zap, { size: 21 })),
-            createElement(
-              'div',
-              null,
-              createElement('p', { className: 'text-lg font-semibold', style: { color: colors.text } }, 'Interview Arena'),
-              createElement('p', { className: 'text-xs', style: { color: colors.muted } }, 'Practice dashboard')
-            )
+            'button',
+            {
+              className: 'rounded-[0.9rem] px-2 py-3 text-left outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[#ff4f00]',
+              onClick: () => router.push('/'),
+              type: 'button',
+            },
+            createElement(BrandLogo, { textColor: colors.text, subtitle: 'Practice dashboard', compact: true })
           ),
           createElement(
             'nav',
@@ -607,9 +630,53 @@ export default function Dashboard() {
             ),
             createElement(
               'div',
-              { className: 'flex items-center gap-3' },
+              { className: 'relative flex items-center gap-3' },
               createElement('div', { className: 'hidden rounded-full px-4 py-2 text-sm font-semibold sm:block', style: { backgroundColor: colors.soft, color: colors.muted } }, user.name),
-              createElement(Button, { className: 'h-10 rounded-[0.9rem]', variant: 'outline', onClick: handleLogout, type: 'button' }, createElement(LogOut, { size: 17 }), 'Logout')
+              createElement(
+                'button',
+                {
+                  className: 'flex h-11 w-11 items-center justify-center rounded-full border transition-colors',
+                  style: { backgroundColor: colors.primary, borderColor: 'rgba(255,255,255,0.2)', color: '#fffefb' },
+                  type: 'button',
+                  onClick: () => setIsAccountMenuOpen((value) => !value),
+                  'aria-label': 'Account menu',
+                  'aria-expanded': isAccountMenuOpen,
+                },
+                createElement(User, { size: 20 })
+              ),
+              createElement(ChevronDown, { size: 16, color: colors.muted }),
+              isAccountMenuOpen
+                ? createElement(
+                    'div',
+                    { className: 'absolute right-0 top-14 w-56 rounded-[1rem] border p-2 shadow-2xl', style: { backgroundColor: colors.panel, borderColor: colors.border } },
+                    createElement('div', { className: 'px-3 py-2' },
+                      createElement('p', { className: 'truncate text-sm font-semibold', style: { color: colors.text } }, user.name),
+                      createElement('p', { className: 'truncate text-xs', style: { color: colors.muted } }, user.email)
+                    ),
+                    createElement(
+                      'button',
+                      {
+                        className: 'mt-1 flex w-full items-center gap-2 rounded-[0.8rem] px-3 py-2 text-left text-sm font-semibold transition-colors',
+                        style: { color: colors.text, backgroundColor: colors.soft },
+                        type: 'button',
+                        onClick: handleGoToDashboard,
+                      },
+                      createElement(Home, { size: 16 }),
+                      'Dashboard'
+                    ),
+                    createElement(
+                      'button',
+                      {
+                        className: 'mt-2 flex w-full items-center gap-2 rounded-[0.8rem] px-3 py-2 text-left text-sm font-semibold transition-colors',
+                        style: { color: '#ff4f00' },
+                        type: 'button',
+                        onClick: handleLogout,
+                      },
+                      createElement(LogOut, { size: 16 }),
+                      'Logout'
+                    )
+                  )
+                : null
             )
           ),
           createElement(
