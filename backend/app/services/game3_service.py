@@ -1,10 +1,7 @@
 import json
 import os
-import google.generativeai as genai
 import random
-
-# Ensure your key is set
-genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+from app.agents.genai_wrapper import genai_available
 
 TOPICS = {
   "EASY": [

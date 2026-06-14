@@ -1,6 +1,7 @@
 from flask import jsonify, request
 from app.services import game4_service
 from app.models.dashboard_model import find_profile_by_user_id
+from app.agents import log_player_action
 
 def start_session(user_id):
     try:
@@ -40,6 +41,13 @@ def evaluate_player_answer(user_id, data):
         result = game4_service.evaluate_with_agent(
             question_id, selected_option, open_answer, confidence_bet, current_rating
         )
+        # log action for coach
+        try:
+            session_id = data.get("sessionId") or data.get("session_id")
+            if session_id:
+                log_player_action(session_id, {"type": "game4_evaluate", "payload": data})
+        except Exception:
+            pass
         return jsonify({"status": "success", "data": result}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

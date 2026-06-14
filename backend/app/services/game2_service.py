@@ -1,10 +1,7 @@
 import random
 import re
 import os
-import google.generativeai as genai
-
-# Use your existing Gemini setup
-genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+from app.agents.genai_wrapper import genai_client, genai_available
 
 # Teammate's Hardcoded Market Data
 MARKET_DATA = {
@@ -138,9 +135,10 @@ def calculate_move(data):
     Respond directly to the candidate in exactly 2 short sentences. Be realistic and stay in character. Do not use markdown.
     """
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(prompt)
-        hr_response_text = response.text.strip()
+        if genai_available:
+            hr_response_text = genai_client.generate_text(prompt)
+        else:
+            raise Exception('genai not available')
     except Exception:
         hr_response_text = f"We have reviewed your {move_type}. Our revised position stands at {hr_counter_offer}."
 

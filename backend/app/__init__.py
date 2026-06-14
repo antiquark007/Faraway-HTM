@@ -5,12 +5,12 @@ from pathlib import Path
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
-import google.generativeai as genai
+from app.agents.genai_wrapper import genai_client, genai_available
 
-# Configure genai globally
+# Optionally set API key via environment; wrapper will prefer installed SDKs
 api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 if api_key:
-    genai.configure(api_key=api_key)
+    os.environ["GOOGLE_API_KEY"] = api_key
 
 from app.extensions import jwt
 from app.routes.dashboard_routes import dashboard_bp
@@ -18,6 +18,7 @@ from app.routes.auth_routes import auth_bp
 from app.routes.game4_routes import game4_bp
 from app.routes.game3_routes import game3_bp
 from app.routes.game2_routes import game2_bp
+from app.routes.coach_routes import coach_bp
 
 
 def create_app() -> Flask:
@@ -47,6 +48,7 @@ def create_app() -> Flask:
     app.register_blueprint(game4_bp)
     app.register_blueprint(game3_bp)
     app.register_blueprint(game2_bp)
+    app.register_blueprint(coach_bp)
 
     @app.get("/api/health")
     def health_check():

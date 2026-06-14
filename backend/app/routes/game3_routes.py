@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import json
 import os
-import google.generativeai as genai
+from app.agents.genai_wrapper import genai_client, genai_available
 from app.controllers import game3_controller
 
 game3_bp = Blueprint('game3_routes', __name__, url_prefix='/api/game3')
@@ -53,8 +53,10 @@ Return ONLY valid JSON, no extra text, no markdown:
 }}
 """
     try:
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        if genai_available:
+            text = genai_client.generate_text(prompt)
+        else:
+            raise Exception('genai not available')
         if text.startswith("```"):
             text = text.split("```")[1]
             if text.startswith("json"):
@@ -86,8 +88,11 @@ HARD = advanced (system design, distributed systems, CAP theorem)
 GOD = expert (design at scale, fault tolerance, real-time systems)
 """
     try:
-        response = model.generate_content(prompt)
-        return jsonify({"topic": response.text.strip()}), 200
+        if genai_available:
+            txt = genai_client.generate_text(prompt)
+            return jsonify({"topic": txt.strip()}), 200
+        else:
+            raise Exception('genai not available')
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -109,8 +114,11 @@ Be specific and actionable.
 Do not repeat the question back.
 """
     try:
-        response = model.generate_content(prompt)
-        return jsonify({"answer": response.text.strip()}), 200
+        if genai_available:
+            txt = genai_client.generate_text(prompt)
+            return jsonify({"answer": txt.strip()}), 200
+        else:
+            raise Exception('genai not available')
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -136,8 +144,10 @@ Return ONLY valid JSON:
 }}
 """
     try:
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        if genai_available:
+            text = genai_client.generate_text(prompt)
+        else:
+            raise Exception('genai not available')
         if text.startswith("```"):
             text = text.split("```")[1]
             if text.startswith("json"):
@@ -164,8 +174,10 @@ Return ONLY valid JSON:
 }}
 """
     try:
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        if genai_available:
+            text = genai_client.generate_text(prompt)
+        else:
+            raise Exception('genai not available')
         if text.startswith("```"):
             text = text.split("```")[1]
             if text.startswith("json"):

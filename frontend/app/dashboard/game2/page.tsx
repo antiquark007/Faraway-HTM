@@ -321,6 +321,9 @@ export default function Game2Page() {
   const [hiringFreezeInfo, setHiringFreezeInfo] = useState<string>('')
   const [marketAverage, setMarketAverage] = useState<number>(0)
   const [baseSalary, setBaseSalary] = useState<number>(0)
+  const [salaryRecommendation, setSalaryRecommendation] = useState<any | null>(null)
+  const [coachReport, setCoachReport] = useState<string | null>(null)
+  const [coachLoading, setCoachLoading] = useState<boolean>(false)
   const [entryLoading, setEntryLoading] = useState<boolean>(false)
   const [round, setRound] = useState<number>(1)
   const [history, setHistory] = useState<RoundHistory[]>([])
@@ -462,6 +465,10 @@ export default function Game2Page() {
 
       const data = await res.json()
       setSessionId(data.sessionId)
+      // populate salary recommendation if returned by backend
+      if (data.salary_recommendation) {
+        setSalaryRecommendation(data.salary_recommendation)
+      }
       setCompanyRange(data.companyRange)
       setFundingStatus(data.fundingStatus)
       setHiringFreezeInfo(data.hiringFreezeInfo)
@@ -799,6 +806,16 @@ export default function Game2Page() {
       { type: 'walk', suit: 'â™ ', rank: 'W', label: 'Walk Away' }
     ] as const
 
+    // salary recommendation panel
+    const recommendationPanel = salaryRecommendation ? createElement('div', { className: 'p-3 rounded-lg border', style: { backgroundColor: colors.panelStrong, borderColor: colors.border } },
+      createElement('div', { className: 'text-xs text-gray-400' }, 'Market Recommendation'),
+      createElement('div', { className: 'mt-2 font-semibold' }, salaryRecommendation.ask ? `Ask: ${formatRupeeWords(salaryRecommendation.ask)}` : `Low: ${salaryRecommendation.low ? formatRupeeWords(salaryRecommendation.low) : 'N/A'}`),
+      createElement('div', { className: 'text-sm mt-1' }, salaryRecommendation.high ? `High: ${formatRupeeWords(salaryRecommendation.high)}` : null),
+      createElement('div', { className: 'mt-3 flex gap-2' },
+        createElement(Button, { onClick: fetchCoachReport, disabled: coachLoading, className: 'h-9 px-3 text-sm' }, coachLoading ? 'Analyzing...' : 'Ask Coach'),
+      )
+    ) : null
+
     return createElement('div', { className: 'grid gap-6 lg:grid-cols-[280px_1fr]' },
       createElement('aside', { className: 'space-y-4' },
         createElement('div', { className: 'rounded-[1.25rem] border p-5 space-y-4 backdrop-blur-xl', style: { backgroundColor: colors.panel, borderColor: colors.border } },
@@ -832,7 +849,8 @@ export default function Game2Page() {
         createElement('div', { className: 'rounded-[1.25rem] border p-5 backdrop-blur-xl text-center space-y-3', style: { backgroundColor: colors.panel, borderColor: colors.border } },
           createElement('p', { className: 'text-[10px] font-bold uppercase tracking-wider', style: { color: colors.subtle } }, 'Pot (Salary Delta)'),
           createElement(ChipStack, { amount: salaryDelta })
-        )
+        ),
+        recommendationPanel && createElement('div', { className: 'rounded-[1.25rem] border p-4', style: { backgroundColor: colors.panel, borderColor: colors.border } }, recommendationPanel),
       ),
       createElement('section', { className: 'space-y-6' },
         createElement('div', { className: 'rounded-[1.5rem] border p-6 backdrop-blur-xl space-y-6', style: { backgroundColor: colors.panel, borderColor: colors.border } },
@@ -994,6 +1012,32 @@ export default function Game2Page() {
     handlePlayCard()
   }
 
+  const fetchCoachReport = async () => {
+    if (!sessionId) return
+    setCoachLoading(true)
+    try {
+      const res = await fetch('http://localhost:5000/api/coach/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      })
+      if (!res.ok) throw new Error('Coach report failed')
+      const jr = await res.json()
+      if (jr && jr.status === 'success' && jr.data) {
+        setCoachReport(jr.data.advice || JSON.stringify(jr.data))
+      } else if (jr && jr.message) {
+        setCoachReport(jr.message)
+      } else {
+        setCoachReport('No coach feedback available.')
+      }
+    } catch (err) {
+      console.error('Coach report error', err)
+      setCoachReport('Failed to fetch coach report.')
+    } finally {
+      setCoachLoading(false)
+    }
+  }
+
   const renderPostSession = () => {
     if (verdict === null) return null
 
@@ -1062,6 +1106,10 @@ export default function Game2Page() {
             createElement('div', { className: 'p-5 rounded-[1.2rem] border text-sm leading-relaxed', style: { backgroundColor: colors.soft, borderColor: colors.border } },
               createElement('p', { className: 'font-semibold mb-2' }, 'Summary Feedback'),
               createElement('p', { style: { color: colors.text } }, feedback),
+              createElement('div', { className: 'mt-4' },
+                createElement(Button, { onClick: fetchCoachReport, className: 'h-9 px-3 mr-3' }, coachLoading ? 'Analyzing...' : 'Get Coach Report'),
+                coachReport && createElement('div', { className: 'mt-3 p-3 rounded border', style: { backgroundColor: colors.panelStrong, borderColor: colors.border, whiteSpace: 'pre-wrap' } }, coachReport)
+              ),
               salaryDelta !== 0 && createElement('p', { className: 'mt-3 font-semibold text-green-500' },
                 `Total gain: ${formatRupeeWords(salaryDelta)} / year`
               ),

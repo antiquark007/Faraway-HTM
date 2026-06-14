@@ -1,10 +1,7 @@
 import json
 import os
 import random
-import google.generativeai as genai
-
-# Configure GenAI
-genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+from app.agents.genai_wrapper import genai_available
 
 # Full pool of MCQ and Open questions by difficulty
 QUESTION_POOL = [
