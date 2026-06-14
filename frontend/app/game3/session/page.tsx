@@ -14,11 +14,14 @@ export default function SessionPage() {
     sessionConfig, sessionState, currentCard, currentRound, 
     timeRemaining, timerActive, inputMode, setInputMode, 
     answer, setAnswer, submitAnswer, evaluationResult, 
-    advanceToNextCard, isEvaluating, livesRemaining, abandonGame, startGame
+    advanceToNextCard, isEvaluating, livesRemaining, abandonGame, startGame,
+    audioBlob, setAudioBlob
   } = useGame3();
 
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const recognitionRef = useRef<any>(null);
 
   // --- SOUND ENGINE ---
   const playSound = (type: 'click' | 'success' | 'fail' | 'fahhh') => {
@@ -50,14 +53,56 @@ export default function SessionPage() {
   const handleMicToggle = async () => {
     playSound('click');
     if (isRecording) {
+      // 1. Stop raw audio
       mediaRecorderRef.current?.stop();
+      // 2. Stop live transcript
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
       setIsRecording(false);
     } else {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
+        
+        const chunks: BlobPart[] = [];
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          setAudioBlob(blob);
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        setAudioBlob(null);
+        setLiveTranscript(''); // Clear old transcript
         mediaRecorder.start();
+        
+        // --- NEW: Live Web Speech Transcript ---
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition) {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          
+          recognition.onresult = (event: any) => {
+            let currentTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              currentTranscript += event.results[i][0].transcript;
+            }
+            setLiveTranscript(currentTranscript);
+          };
+          
+          recognitionRef.current = recognition;
+          recognition.start();
+        } else {
+          console.warn("Live transcript not supported in this browser, but audio is still recording.");
+        }
+        // --------------------------------------
+
         setIsRecording(true);
       } catch (err) {
         console.error("Mic access denied");
@@ -144,16 +189,24 @@ export default function SessionPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-8 bg-background border border-border rounded-[1rem] h-32">
+              // --- THIS IS THE UPDATED RECORDING BOX ---
+              <div className="flex flex-col items-center justify-center p-6 bg-background border border-border rounded-[1rem] min-h-[12rem]">
                 <button 
                   onClick={handleMicToggle}
-                  className={`w-16 h-16 rounded-full flex items-center justify-center text-primary-foreground shadow-lg transition-transform ${isRecording ? 'bg-destructive animate-pulse scale-110' : 'bg-primary hover:scale-105'}`}
+                  className={`w-16 h-16 rounded-full flex items-center justify-center text-primary-foreground shadow-lg transition-transform mb-4 ${isRecording ? 'bg-destructive animate-pulse scale-110' : 'bg-primary hover:scale-105'}`}
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/></svg>
                 </button>
-                <p className="mt-3 text-sm font-semibold text-foreground">
-                  {isRecording ? "Recording... Click to stop" : "Click to start speaking"}
+                <p className="text-sm font-semibold text-foreground mb-4">
+                  {isRecording ? "Recording... Click mic to stop before submitting" : "Click to start speaking"}
                 </p>
+                
+                {/* Live Transcript Box */}
+                {(isRecording || liveTranscript) && (
+                  <div className="w-full bg-muted/50 p-4 rounded-lg border border-border text-sm text-muted-foreground italic h-24 overflow-y-auto">
+                    {liveTranscript || "Listening for your voice..."}
+                  </div>
+                )}
               </div>
             )}
 
@@ -161,9 +214,10 @@ export default function SessionPage() {
               size="lg"
               className="w-full mt-4 h-12 rounded-[0.9rem] font-bold text-base"
               onClick={() => { playSound('click'); submitAnswer(); }}
-              disabled={(!answer && !isRecording) || isEvaluating}
+              // --- SUBMIT IS NOW LOCKED WHILE RECORDING ---
+              disabled={isRecording || (!answer && !audioBlob) || isEvaluating}
             >
-              {isEvaluating ? 'Evaluating...' : 'Submit Answer'}
+              {isEvaluating ? 'Evaluating...' : (isRecording ? 'Stop Recording to Submit' : 'Submit Answer')}
             </Button>
           </div>
         )}
