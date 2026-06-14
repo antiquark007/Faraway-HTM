@@ -4,6 +4,9 @@ interface InitRequest {
   companyName: string
   role: string
   currentOffer: number
+  resumeText?: string
+  predictedSalary?: number
+  salaryUnit?: 'thousand' | 'lakh' | 'crore'
 }
 
 export async function POST(request: Request) {

@@ -484,6 +484,7 @@ export default function Game1Page() {
           await apiRequest('/api/dashboard/activity', {
             method: 'POST',
             token,
+            suppressErrors: true,
             body: {
               gameKey: 'game1',
               title: 'Coffee with Interview Arena',
@@ -998,3 +999,4 @@ export default function Game1Page() {
     )
   )
 }
+

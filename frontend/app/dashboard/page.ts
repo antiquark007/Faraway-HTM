@@ -387,31 +387,38 @@ export default function Dashboard() {
       )
     )
 
-  const renderGames = () =>
-    createElement(
+  const renderGames = () => {
+    const gameImageMap: Record<string, string> = {
+      'Coffee with Interview Arena': '/coffee-with-interview-arena.png',
+      'Salary Negotiator Poker': '/salary-negotiator-poker.jpg',
+      'Articulate Master': '/articulate-master.jpg',
+      'GOOGLY MASTER': '/googly-master.jpg',
+    }
+
+    return createElement(
       'div',
       { className: 'grid gap-5 md:grid-cols-2 xl:grid-cols-4' },
       ...dashboard.games.map((game) => {
-        const Icon = iconMap[game.icon] ?? Gamepad2
+        const imageUrl = gameImageMap[game.title]
         const isCoffeeGame = game.title === 'Coffee with Interview Arena'
         return createElement(
           'article',
           { key: game.title, className: 'rounded-[1.25rem] border p-6 transition-transform hover:-translate-y-1', style: { backgroundColor: colors.panel, borderColor: colors.border } },
-          isCoffeeGame
+          imageUrl
             ? createElement(
                 'div',
-                { className: 'mb-6 flex justify-center' },
+                { className: 'mb-6 flex justify-center overflow-hidden rounded-[0.75rem]' },
                 createElement('img', {
-                  src: '/coffee-with-interview-arena.png',
+                  src: imageUrl,
                   alt: game.title,
-                  className: 'h-40 w-full max-w-[19rem] object-contain',
+                  className: `h-40 w-full max-w-[19rem] ${isCoffeeGame ? 'object-contain' : 'object-cover'}`,
                   draggable: false,
                 })
               )
             : createElement(
                 'div',
                 { className: 'mb-6 flex items-center justify-start' },
-                createElement('div', { className: 'flex h-12 w-12 items-center justify-center rounded-[1rem]', style: { backgroundColor: colors.primarySoft, color: colors.primary } }, createElement(Icon, { size: 24 })),
+                createElement('div', { className: 'flex h-12 w-12 items-center justify-center rounded-[1rem]', style: { backgroundColor: colors.primarySoft, color: colors.primary } }, createElement(iconMap[game.icon] ?? Gamepad2, { size: 24 })),
               ),
           createElement('h2', { className: 'text-xl font-semibold', style: { color: colors.text } }, game.title),
           createElement('p', { className: 'mt-3 min-h-12 text-sm leading-6', style: { color: colors.muted } }, game.detail),
@@ -428,6 +435,7 @@ export default function Dashboard() {
         )
       })
     )
+  }
 
   const renderLeaderboard = () =>
     createElement(

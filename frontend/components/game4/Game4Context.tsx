@@ -87,7 +87,8 @@ export function Game4Provider({ children }: { children: React.ReactNode }) {
       await apiRequest('/api/dashboard/activity', {
         method: 'POST',
         token,
-        body: {
+      suppressErrors: true,
+      body: {
           gameKey: 'game4',
           title: 'GOOGLY MASTER',
           score: payload.score,

@@ -4,16 +4,13 @@ import { createElement, type ReactElement, type ReactNode } from 'react'
 
 import { ThemeProvider } from './theme-provider'
 import { ToastProvider } from '@/components/toast'
+import { ServiceWorkerCleanup } from '@/components/sw-cleanup'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Interview Arena | Gamified AI-Powered Interview Prep',
   description: 'Master interviews without the burnout. Interview Arena uses AI agents and gamification to keep you interview-ready while having fun.',
   generator: 'v0.app',
-  icons: {
-    icon: '/interview-arena-logo.png',
-    apple: '/interview-arena-logo.png',
-  },
 }
 
 export default function RootLayout({
@@ -29,6 +26,7 @@ export default function RootLayout({
       { className: 'font-sans antialiased text-ink' },
       createElement(ThemeProvider, null,
         createElement(ToastProvider, null, children),
+        createElement(ServiceWorkerCleanup, null),
       ),
       process.env.NODE_ENV === 'production' ? createElement(Analytics) : null,
     ),

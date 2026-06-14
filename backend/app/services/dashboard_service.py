@@ -6,7 +6,7 @@ from app.services.db_service import get_db
 def _build_games():
     return [
         {"title": "Coffee with Interview Arena", "detail": "Start with a calm conversational round built for warm-up practice.", "route": "/dashboard/game1", "icon": "book-open-check"},
-        {"title": "Salary Negotiator Poker", "detail": "Play negotiation hands and practice confident compensation conversations.", "route": "/dashboard/game2", "icon": "bar-chart-3"},
+        {"title": "Salary Negotiator Poker", "detail": "Learn salary negotiation in a poker-style game with resume-based salary guidance.", "route": "/dashboard/game2", "icon": "bar-chart-3"},
         {"title": "Articulate Master", "detail": "Sharpen clear answers, tighter structure, and polished interview delivery.", "route": "/game3/session", "icon": "brain"},
         {"title": "GOOGLY MASTER", "detail": "Read tricky questions, spot the trap, and lock in your confidence bet.", "route": "/game4/session", "icon": "gamepad-2"},
     ]

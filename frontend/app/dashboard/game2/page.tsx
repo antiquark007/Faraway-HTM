@@ -1,18 +1,15 @@
 'use client'
 
-import { createElement, useEffect, useState, useRef, useMemo } from 'react'
+import { createElement, useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
-  AlertCircle,
-  CheckCircle2,
-  Play,
   RotateCcw,
-  Trophy,
   Sparkles,
   Coins,
   Loader2,
-  Info,
+  FileText,
+  Upload,
 } from 'lucide-react'
 
 import { useTheme } from '@/app/theme-provider'
@@ -26,6 +23,7 @@ interface RoundHistory {
   counterAmount?: number
   hrResponse: string
   hrCounterOffer: number
+  paused?: boolean
 }
 
 interface PokerCardProps {
@@ -115,9 +113,10 @@ function PokerCard({
 }
 
 function ChipStack({ amount }: { amount: number }) {
-  const chipCount = Math.min(20, Math.max(1, Math.round(Math.abs(amount) / 5000)))
-  const colorLight = amount >= 0 ? '#4ade80' : '#f87171'
-  const colorDark = amount >= 0 ? '#16a34a' : '#dc2626'
+  const safeAmount = Math.max(0, Math.abs(amount))
+  const chipCount = Math.min(20, Math.max(1, Math.round(safeAmount / 5000)))
+  const colorLight = '#4ade80'
+  const colorDark = '#16a34a'
   const viewBoxHeight = 10 + chipCount * 5
 
   return createElement('div', { className: 'flex flex-col items-center gap-1.5' },
@@ -137,23 +136,168 @@ function ChipStack({ amount }: { amount: number }) {
         )
       })
     ),
-    createElement('span', { className: 'text-xs font-bold px-2.5 py-0.5 rounded-full', style: { backgroundColor: amount >= 0 ? 'rgba(34, 197, 94, 0.16)' : 'rgba(239, 68, 68, 0.16)', color: amount >= 0 ? '#22c55e' : '#ef4444' } },
-      `${amount >= 0 ? '+' : ''}${amount.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}`
+    createElement('span', { className: 'text-xs font-bold px-2.5 py-0.5 rounded-full', style: { backgroundColor: 'rgba(34, 197, 94, 0.16)', color: '#22c55e' } },
+      formatRupeeWords(safeAmount)
     )
   )
 }
 
 function DecorativeCardFan() {
-  return createElement('div', { 'aria-hidden': 'true', className: 'relative h-28 w-48 mx-auto opacity-30 select-none' },
-    createElement('div', { className: 'absolute left-2 top-0 w-16 h-24 bg-gray-700 rounded-lg shadow-md transform -rotate-12 border border-gray-600' }),
-    createElement('div', { className: 'absolute left-12 top-0 w-16 h-24 bg-orange-700 rounded-lg shadow-md transform rotate-0 border border-orange-600' }),
-    createElement('div', { className: 'absolute left-22 top-0 w-16 h-24 bg-gray-800 rounded-lg shadow-md transform rotate-12 border border-gray-700' })
+  const miniCards = [
+    { rank: 'A', suit: '\u2666', color: '#dc2626', rotate: '-rotate-12', left: 'left-2', top: 'top-3' },
+    { rank: 'K', suit: '\u2660', color: '#111827', rotate: 'rotate-0', left: 'left-16', top: 'top-0' },
+    { rank: 'Q', suit: '\u2665', color: '#dc2626', rotate: 'rotate-12', left: 'left-30', top: 'top-3' },
+  ]
+
+  return createElement('div', { 'aria-hidden': 'true', className: 'relative h-32 w-60 mx-auto select-none' },
+    miniCards.map((card) =>
+      createElement('div', {
+        key: `${card.rank}${card.suit}`,
+        className: `absolute ${card.left} ${card.top} ${card.rotate} flex h-28 w-20 flex-col justify-between rounded-[0.8rem] border bg-[#fffefb] p-2 shadow-2xl`,
+        style: { borderColor: 'rgba(255, 180, 91, 0.75)', boxShadow: '0 18px 35px rgba(0,0,0,0.28)' }
+      },
+        createElement('div', { className: 'flex flex-col items-start leading-none', style: { color: card.color } },
+          createElement('span', { className: 'text-sm font-black' }, card.rank),
+          createElement('span', { className: 'text-lg' }, card.suit)
+        ),
+        createElement('span', { className: 'text-3xl leading-none', style: { color: card.color } }, card.suit),
+        createElement('div', { className: 'flex rotate-180 flex-col items-start leading-none', style: { color: card.color } },
+          createElement('span', { className: 'text-sm font-black' }, card.rank),
+          createElement('span', { className: 'text-lg' }, card.suit)
+        )
+      )
+    )
+  )
+}
+
+function PokerLoadingOverlay() {
+  const loadingCards = [
+    { rank: 'A', suit: '\u2660', label: 'Shuffling' },
+    { rank: 'K', suit: '\u2665', label: 'Reading' },
+    { rank: 'Q', suit: '\u2666', label: 'Dealing' },
+  ]
+
+  return createElement(
+    'div',
+    {
+      className: 'fixed inset-0 z-50 flex items-center justify-center px-4',
+      style: { background: 'rgba(18, 13, 10, 0.72)', backdropFilter: 'blur(14px)' },
+      role: 'status',
+      'aria-live': 'polite',
+      'aria-label': 'Loading negotiation screen',
+    },
+    createElement(
+      'div',
+      {
+        className: 'w-full max-w-lg rounded-[1.75rem] border p-6 text-center shadow-2xl',
+        style: { backgroundColor: 'rgba(42, 32, 24, 0.95)', borderColor: 'rgba(255, 180, 91, 0.25)' },
+      },
+      createElement('div', { className: 'flex items-center justify-center gap-3' },
+        createElement(Loader2, { size: 18, className: 'animate-spin text-orange-400' }),
+        createElement('span', { className: 'text-sm font-semibold uppercase tracking-[0.3em] text-orange-300' }, 'Loading Table')
+      ),
+      createElement('h3', { className: 'mt-4 text-2xl font-bold text-[#fff8ef]' }, 'Shuffling the deck'),
+      createElement('p', { className: 'mt-2 text-sm text-[#d8cabc]' }, 'Preparing the next move and reading the table.'),
+      createElement('div', { className: 'mt-6 flex items-center justify-center gap-4' },
+        loadingCards.map((card, index) =>
+          createElement(
+            'div',
+            {
+              key: card.rank,
+              className: `loading-card loading-card-${index + 1}`,
+              style: { animationDelay: `${index * 0.18}s` },
+            },
+            createElement(PokerCard, {
+              face: 'up',
+              rank: card.rank,
+              suit: card.suit,
+              label: card.label,
+              sublabel: 'Preparing',
+            })
+          )
+        )
+      ),
+      createElement('p', { className: 'mt-5 text-xs uppercase tracking-[0.25em] text-[#aa9c8f]' }, 'Please wait')
+    )
+  )
+}
+
+function PokerWarningOverlay({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry: () => void
+}) {
+  return createElement(
+    'div',
+    {
+      className: 'fixed inset-0 z-50 flex items-center justify-center px-4',
+      style: { background: 'rgba(24, 10, 10, 0.78)', backdropFilter: 'blur(14px)' },
+      role: 'alert',
+      'aria-live': 'assertive',
+    },
+    createElement(
+      'div',
+      {
+        className: 'w-full max-w-md rounded-[1.5rem] border p-6 text-center shadow-2xl',
+        style: { backgroundColor: '#2a2018', borderColor: 'rgba(239, 68, 68, 0.35)' },
+      },
+      createElement('p', { className: 'text-xs font-bold uppercase tracking-[0.3em] text-red-300' }, 'Warning'),
+      createElement('h3', { className: 'mt-3 text-2xl font-bold text-[#fff8ef]' }, 'Move paused'),
+      createElement('p', { className: 'mt-3 text-sm leading-6 text-[#dccfc0]' }, message),
+      createElement('button', {
+        type: 'button',
+        onClick: onRetry,
+        className: 'mt-6 h-11 rounded-[0.9rem] px-5 text-sm font-semibold bg-red-600 text-white hover:bg-red-700',
+      }, 'Retry This Round')
+    )
   )
 }
 
 function buildGame2Points(verdict: 'win' | 'lose' | 'fail' | 'perfect_win' | null, salaryDelta: number): number {
   const base = verdict === 'perfect_win' ? 220 : verdict === 'win' ? 160 : verdict === 'lose' ? 40 : verdict === 'fail' ? 20 : 0
-  return base + Math.max(0, Math.round(salaryDelta / 1000))
+  return base + Math.max(0, Math.round(salaryDelta / 100000))
+}
+
+function formatRupeeWords(amount: number): string {
+  const safeAmount = Math.max(0, Math.round(Math.abs(amount)))
+  const formatUnit = (value: number) => {
+    const rounded = Number(value.toFixed(1))
+    return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1)
+  }
+
+  if (safeAmount >= 10000000) return `Rs. ${formatUnit(safeAmount / 10000000)} crore`
+  if (safeAmount >= 100000) return `Rs. ${formatUnit(safeAmount / 100000)} lakh`
+  if (safeAmount >= 1000) return `Rs. ${formatUnit(safeAmount / 1000)} thousand`
+  return `Rs. ${safeAmount}`
+}
+
+function extractResumeSkills(resumeText: string): string[] {
+  const skillGroups = [
+    { label: 'AI / ML', tokens: ['ai', 'ml', 'machine learning', 'llm', 'genai'] },
+    { label: 'Frontend', tokens: ['react', 'next.js', 'javascript', 'typescript', 'html', 'css', 'tailwind'] },
+    { label: 'Backend', tokens: ['node', 'python', 'java', 'api', 'express', 'django', 'flask'] },
+    { label: 'Cloud', tokens: ['aws', 'azure', 'gcp', 'docker', 'kubernetes', 'terraform'] },
+    { label: 'Data', tokens: ['data', 'sql', 'analytics', 'warehouse', 'pipeline', 'spark'] },
+    { label: 'Leadership', tokens: ['lead', 'manager', 'principal', 'staff', 'architect', 'mentor'] },
+  ]
+
+  const haystack = resumeText.toLowerCase()
+  return skillGroups
+    .filter((group) => group.tokens.some((token) => haystack.includes(token)))
+    .map((group) => group.label)
+}
+
+function predictSalaryFromResume(resumeText: string, role: string): number {
+  const combined = `${resumeText} ${role}`.toLowerCase()
+  const seniorSignals = ['senior', 'lead', 'principal', 'architect', 'manager', 'staff']
+  const premiumSkills = ['ai', 'ml', 'machine learning', 'react', 'next.js', 'node', 'cloud', 'aws', 'kubernetes', 'system design', 'data', 'typescript', 'sql']
+
+  const seniorBonus = seniorSignals.some((skill) => combined.includes(skill)) ? 900000 : 0
+  const skillBonus = premiumSkills.reduce((total, skill) => total + (combined.includes(skill) ? 180000 : 0), 0)
+
+  return Math.min(6000000, Math.max(300000, 650000 + seniorBonus + skillBonus))
 }
 
 export default function Game2Page() {
@@ -165,30 +309,37 @@ export default function Game2Page() {
   const [companyName, setCompanyName] = useState<string>('')
   const [role, setRole] = useState<string>('')
   const [currentOffer, setCurrentOffer] = useState<string>('')
+  const [salaryUnit, setSalaryUnit] = useState<'thousand' | 'lakh' | 'crore'>('lakh')
+  const [resumeFileName, setResumeFileName] = useState<string>('')
+  const [resumeText, setResumeText] = useState<string>('')
+  const [resumeUploadError, setResumeUploadError] = useState<string>('')
+  const [predictedSalary, setPredictedSalary] = useState<number>(0)
   const [sessionId, setSessionId] = useState<string>('')
   const [companyRange, setCompanyRange] = useState<{ min: number; max: number }>({ min: 0, max: 0 })
   const [fundingStatus, setFundingStatus] = useState<string>('')
   const [hiringFreezeInfo, setHiringFreezeInfo] = useState<string>('')
   const [marketAverage, setMarketAverage] = useState<number>(0)
   const [baseSalary, setBaseSalary] = useState<number>(0)
+  const [entryLoading, setEntryLoading] = useState<boolean>(false)
   const [round, setRound] = useState<number>(1)
   const [history, setHistory] = useState<RoundHistory[]>([])
   const [selectedCardType, setSelectedCardType] = useState<'counter' | 'justify' | 'trade' | 'walk' | null>(null)
   const [counterAmountInput, setCounterAmountInput] = useState<string>('')
+  const [justificationText, setJustificationText] = useState<string>('')
   const [hrCardFlipped, setHrCardFlipped] = useState<boolean>(false)
   const [playingCard, setPlayingCard] = useState<boolean>(false)
   const [verdict, setVerdict] = useState<'win' | 'lose' | 'fail' | 'perfect_win' | null>(null)
   const [feedback, setFeedback] = useState<string>('')
   const [salaryDelta, setSalaryDelta] = useState<number>(0)
   const [finalSalary, setFinalSalary] = useState<number>(0)
+  const [warningMessage, setWarningMessage] = useState<string>('')
 
-  const playSound = (soundType: 'click' | 'deal' | 'success' | 'fail') => {
+  const playSound = (soundType: 'card' | 'good' | 'bad') => {
     try {
       let src = ''
-      if (soundType === 'click') src = '/sounds/click.mp3'
-      else if (soundType === 'deal') src = '/sounds/fahhh.mp3'
-      else if (soundType === 'success') src = '/sounds/success.mp3'
-      else if (soundType === 'fail') src = '/sounds/fail.mp3'
+      if (soundType === 'card') src = '/sounds/click.mp3'
+      else if (soundType === 'good') src = '/sounds/success.mp3'
+      else if (soundType === 'bad') src = '/sounds/fahhh.mp3'
 
       const audio = new Audio(src)
       audio.volume = 0.5
@@ -214,6 +365,23 @@ export default function Game2Page() {
     }
   }, [theme])
 
+  const resumeSkills = useMemo(() => extractResumeSkills(resumeText), [resumeText])
+
+  useEffect(() => {
+    if (!resumeText.trim()) return
+    setPredictedSalary(predictSalaryFromResume(resumeText, role))
+  }, [resumeText, role])
+
+  useEffect(() => {
+    if (!entryLoading || phase !== 'gameplay') return
+
+    const timer = setTimeout(() => {
+      setEntryLoading(false)
+    }, 6000)
+
+    return () => clearTimeout(timer)
+  }, [entryLoading, phase])
+
   const moveSuitMap = (type: 'counter' | 'justify' | 'trade' | 'walk') => {
     switch (type) {
       case 'counter': return { suit: 'â™¦', rank: 'C', label: 'Counter' }
@@ -223,9 +391,53 @@ export default function Game2Page() {
     }
   }
 
-  const handleStartGame = async () => {
+  const getSalaryMultiplier = () => {
+    if (salaryUnit === 'crore') return 10000000
+    if (salaryUnit === 'lakh') return 100000
+    return 1000
+  }
+
+  const getOfferInRupees = () => {
     const offerNum = Number(currentOffer)
-    if (!companyName.trim() || !role.trim() || isNaN(offerNum) || offerNum <= 0) return
+    return Number.isFinite(offerNum) ? Math.round(offerNum * getSalaryMultiplier()) : 0
+  }
+
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (ext !== 'pdf' && ext !== 'docx' && ext !== 'txt' && ext !== 'md') {
+      setResumeUploadError('Use a resume file in .pdf, .docx, .txt, or .md format.')
+      setResumeFileName('')
+      setResumeText('')
+      setPredictedSalary(0)
+      return
+    }
+
+    try {
+      const extractedText = (await file.text()).replace(/\s+/g, ' ').trim()
+      const resumeSeed = [extractedText, file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '), role, companyName]
+        .filter(Boolean)
+        .join(' ')
+
+      setResumeUploadError('')
+      setResumeFileName(file.name)
+      setResumeText(resumeSeed)
+      setPredictedSalary(predictSalaryFromResume(resumeSeed, role))
+    } catch (error) {
+      console.error('Failed to read resume file:', error)
+      const fallbackText = `${file.name} ${role} ${companyName}`.trim()
+      setResumeUploadError('The file could not be fully read. The app is using the filename and role to estimate skills.')
+      setResumeFileName(file.name)
+      setResumeText(fallbackText)
+      setPredictedSalary(predictSalaryFromResume(fallbackText, role))
+    }
+  }
+
+  const handleStartGame = async () => {
+    const offerNum = getOfferInRupees()
+    if (!companyName.trim() || !role.trim() || !resumeText.trim() || isNaN(offerNum) || offerNum <= 0) return
 
     setLoading(true)
     try {
@@ -235,7 +447,10 @@ export default function Game2Page() {
         body: JSON.stringify({
           companyName: companyName.trim(),
           role: role.trim(),
-          currentOffer: offerNum
+          currentOffer: offerNum,
+          resumeText,
+          predictedSalary,
+          salaryUnit
         })
       })
 
@@ -252,9 +467,12 @@ export default function Game2Page() {
       setHistory([])
       setSelectedCardType(null)
       setCounterAmountInput('')
+      setJustificationText('')
       setHrCardFlipped(false)
+      setWarningMessage('')
+      setEntryLoading(true)
       setPhase('gameplay')
-      playSound('deal')
+      playSound('card')
     } catch (err) {
       console.error(err)
       alert('Error initiating the session. Please check inputs.')
@@ -272,8 +490,9 @@ export default function Game2Page() {
       return
     }
 
+    const previousOffer = history.length > 0 ? history[history.length - 1].hrCounterOffer : baseSalary
     setPlayingCard(true)
-    playSound('click')
+    playSound('card')
 
     setTimeout(async () => {
       setLoading(true)
@@ -286,6 +505,7 @@ export default function Game2Page() {
             round,
             moveType: selectedCardType,
             counterAmount: numVal,
+            justificationText,
             history,
             baseSalary,
             companyRange,
@@ -301,7 +521,8 @@ export default function Game2Page() {
           moveType: selectedCardType,
           counterAmount: numVal,
           hrResponse: data.hrResponse,
-          hrCounterOffer: data.hrCounterOffer
+          hrCounterOffer: data.hrCounterOffer,
+          paused: Boolean(data.isPaused)
         }
 
         const updatedHistory = [...history, newRound]
@@ -309,37 +530,47 @@ export default function Game2Page() {
         setSalaryDelta(data.salaryDelta)
         setFinalSalary(data.hrCounterOffer)
         setHrCardFlipped(true)
-        playSound('deal')
+        playSound('card')
+
+        if (data.isPaused) {
+          setWarningMessage(data.feedback || 'The round has been paused. Retry with a stronger move.')
+          playSound('bad')
+        } else {
+          setWarningMessage('')
+        }
 
         if (data.isGameOver) {
           setVerdict(data.verdict)
           setFeedback(data.feedback)
           if (data.verdict === 'win' || data.verdict === 'perfect_win') {
-            setTimeout(() => playSound('success'), 600)
+            setTimeout(() => playSound('good'), 600)
           } else {
-            setTimeout(() => playSound('fail'), 600)
+            setTimeout(() => playSound('bad'), 600)
           }
+        } else if (!data.isPaused && data.hrCounterOffer > previousOffer) {
+          setTimeout(() => playSound('good'), 250)
+        }
 
-          const token = localStorage.getItem('authToken')
-          if (token) {
-            try {
-              await apiRequest('/api/dashboard/activity', {
-                method: 'POST',
-                token,
-                body: {
-                  gameKey: 'game2',
-                  title: 'Salary Negotiator Poker',
-                  score: data.hrCounterOffer,
-                  pointsAwarded: buildGame2Points(data.verdict, data.salaryDelta),
-                  summary: data.feedback || 'Negotiation session completed.',
-                  focusAreas: data.verdict === 'perfect_win' || data.verdict === 'win'
-                    ? ['negotiation']
-                    : ['salary-strategy', 'market-research'],
-                },
-              })
-            } catch (activityError) {
-              console.error('Failed to record game2 progress:', activityError)
-            }
+        const token = localStorage.getItem('authToken')
+        if (token) {
+          try {
+            await apiRequest('/api/dashboard/activity', {
+              method: 'POST',
+              token,
+              suppressErrors: true,
+              body: {
+                gameKey: 'game2',
+                title: 'Salary Negotiator Poker',
+                score: data.hrCounterOffer,
+                pointsAwarded: buildGame2Points(data.verdict, data.salaryDelta),
+                summary: data.feedback || 'Negotiation session completed.',
+                focusAreas: data.verdict === 'perfect_win' || data.verdict === 'win'
+                  ? ['negotiation']
+                  : ['salary-strategy', 'market-research'],
+              },
+            })
+          } catch (activityError) {
+            console.error('Failed to record game2 progress:', activityError)
           }
         }
       } catch (err) {
@@ -355,14 +586,24 @@ export default function Game2Page() {
   const handleNextRound = () => {
     setSelectedCardType(null)
     setCounterAmountInput('')
+    setJustificationText('')
     setHrCardFlipped(false)
+    setWarningMessage('')
 
     if (round < 4) {
       setRound(round + 1)
-      playSound('deal')
+      playSound('card')
     } else {
       setPhase('post-session')
     }
+  }
+
+  const handleRetryWarning = () => {
+    setWarningMessage('')
+    setSelectedCardType(null)
+    setCounterAmountInput('')
+    setJustificationText('')
+    setHrCardFlipped(false)
   }
 
   const handleFinishGame = () => {
@@ -373,21 +614,29 @@ export default function Game2Page() {
     setCompanyName('')
     setRole('')
     setCurrentOffer('')
+    setSalaryUnit('lakh')
+    setResumeFileName('')
+    setResumeText('')
+    setResumeUploadError('')
+    setPredictedSalary(0)
+    setEntryLoading(false)
     setSessionId('')
     setRound(1)
     setHistory([])
     setSelectedCardType(null)
     setCounterAmountInput('')
+    setJustificationText('')
     setHrCardFlipped(false)
     setVerdict(null)
     setFeedback('')
     setSalaryDelta(0)
     setFinalSalary(0)
+    setWarningMessage('')
     setPhase('setup')
   }
 
   const renderSetup = () => {
-    const isFormValid = companyName.trim() && role.trim() && currentOffer.trim() && !isNaN(Number(currentOffer))
+    const isFormValid = companyName.trim() && role.trim() && currentOffer.trim() && resumeText.trim() && !isNaN(Number(currentOffer))
 
     return createElement('div', { className: 'max-w-md mx-auto mt-6' },
       createElement('section', { className: 'rounded-[1.5rem] border p-6 backdrop-blur-xl lg:p-8', style: { backgroundColor: colors.panel, borderColor: colors.border } },
@@ -395,10 +644,10 @@ export default function Game2Page() {
           createElement('div', { className: 'text-center' },
             createElement('div', { className: 'mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold', style: { backgroundColor: colors.primarySoft, color: colors.primary } },
               createElement(Sparkles, { size: 16 }),
-              createElement('span', null, 'Negotiator Poker Setup')
+              createElement('span', null, 'Salary Negotiator Poker Setup')
             ),
-            createElement('h2', { className: 'text-2xl font-bold', style: { color: colors.text } }, 'Start Negotiation Hand'),
-            createElement('p', { className: 'text-xs mt-2', style: { color: colors.muted } }, 'Configure your initial company offer. Standard poker mechanics will represent your moves.')
+            createElement('h2', { className: 'text-2xl font-bold', style: { color: colors.text } }, 'Learn to Negotiate Your Salary Like a Pro'),
+            createElement('p', { className: 'text-xs mt-2', style: { color: colors.muted } }, 'Play a poker-style negotiation game, protect your job offer, and push for the salary you deserve.')
           ),
 
           createElement(DecorativeCardFan, null),
@@ -427,15 +676,68 @@ export default function Game2Page() {
               })
             ),
             createElement('div', null,
-              createElement('label', { className: 'block text-xs font-semibold uppercase tracking-wider mb-2', style: { color: colors.subtle } }, 'Initial Base Salary Offer ($)'),
-              createElement('input', {
-                type: 'number',
-                value: currentOffer,
-                onChange: (e) => setCurrentOffer((e.target as HTMLInputElement).value),
-                placeholder: 'e.g. 120000',
-                className: 'h-11 w-full rounded-[0.9rem] border px-4 text-sm outline-none bg-transparent',
-                style: { borderColor: colors.border, color: colors.text }
-              })
+              createElement('label', { className: 'block text-xs font-semibold uppercase tracking-wider mb-2', style: { color: colors.subtle } }, 'Initial Base Salary Offer (INR)'),
+              createElement('div', { className: 'grid gap-3 sm:grid-cols-[1fr_140px]' },
+                createElement('input', {
+                  type: 'number',
+                  value: currentOffer,
+                  onChange: (e) => setCurrentOffer((e.target as HTMLInputElement).value),
+                  placeholder: salaryUnit === 'crore' ? 'e.g. 2' : salaryUnit === 'lakh' ? 'e.g. 12' : 'e.g. 500',
+                  className: 'h-11 w-full rounded-[0.9rem] border px-4 text-sm outline-none bg-transparent',
+                  style: { borderColor: colors.border, color: colors.text }
+                }),
+                createElement('select', {
+                  value: salaryUnit,
+                  onChange: (e) => setSalaryUnit((e.target as HTMLSelectElement).value as 'thousand' | 'lakh' | 'crore'),
+                  className: 'h-11 w-full rounded-[0.9rem] border px-4 text-sm outline-none bg-transparent',
+                  style: { borderColor: colors.border, color: colors.text }
+                },
+                  createElement('option', { value: 'thousand' }, 'Thousand'),
+                  createElement('option', { value: 'lakh' }, 'Lakh'),
+                  createElement('option', { value: 'crore' }, 'Crore')
+                )
+              ),
+              createElement('p', { className: 'mt-2 text-[11px] font-medium', style: { color: colors.muted } },
+                `Converted salary: ${formatRupeeWords(getOfferInRupees())}`
+              )
+            ),
+            createElement('div', null,
+              createElement('label', { className: 'mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider', style: { color: colors.subtle } },
+                createElement(Upload, { size: 14 }),
+                'Upload Resume'
+              ),
+              createElement('label', {
+                className: 'flex min-h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-[1rem] border border-dashed px-4 py-5 text-center text-sm transition-colors',
+                style: { borderColor: colors.border, color: colors.muted, backgroundColor: colors.soft }
+              },
+                createElement(FileText, { size: 22 }),
+                createElement('span', { className: 'font-semibold', style: { color: colors.text } }, resumeFileName || 'Drop or choose a resume file'),
+                createElement('span', { className: 'text-[11px]' }, 'We use your resume skills to estimate the salary you deserve.'),
+                createElement('input', {
+                  type: 'file',
+                  accept: '.pdf,.docx,.txt,.md',
+                  className: 'sr-only',
+                  onChange: (e) => { void handleResumeUpload(e as React.ChangeEvent<HTMLInputElement>) }
+                })
+              ),
+              resumeUploadError && createElement('p', { className: 'mt-2 text-xs font-medium text-red-500' }, resumeUploadError),
+              resumeText && createElement('div', { className: 'mt-3 rounded-[1rem] border p-3', style: { backgroundColor: colors.panelStrong, borderColor: colors.border } },
+                createElement('p', { className: 'text-[11px] font-bold uppercase tracking-wider', style: { color: colors.subtle } }, 'Detected Skills'),
+                createElement('div', { className: 'mt-2 flex flex-wrap gap-2' },
+                  resumeSkills.length > 0
+                    ? resumeSkills.map((skill) =>
+                        createElement('span', {
+                          key: skill,
+                          className: 'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                          style: { backgroundColor: colors.primarySoft, color: colors.primary }
+                        }, skill)
+                      )
+                    : createElement('span', { className: 'text-xs', style: { color: colors.muted } }, 'No strong skill matches found yet.')
+                ),
+                createElement('p', { className: 'mt-3 text-[11px] font-medium', style: { color: colors.muted } },
+                  `Predicted salary: ${predictedSalary > 0 ? `${formatRupeeWords(predictedSalary)} / year` : 'Upload a resume to calculate.'}`
+                )
+              )
             )
           ),
 
@@ -448,7 +750,7 @@ export default function Game2Page() {
                 backgroundColor: isFormValid ? colors.primary : colors.soft,
                 color: isFormValid ? '#fffefb' : colors.subtle
               }
-            }, 'Deals Hand ->')
+            }, 'Start Salary Negotiation ->')
           )
         )
       )
@@ -457,7 +759,8 @@ export default function Game2Page() {
 
   const renderGameplay = () => {
     const currentHROffer = history.length > 0 ? history[history.length - 1].hrCounterOffer : baseSalary
-    const isRoundCompleted = history.length >= round
+    const completedRounds = history.filter((entry) => !entry.paused).length
+    const isRoundCompleted = completedRounds >= round
     const isGameOver = verdict !== null
 
     const moves = [
@@ -482,13 +785,13 @@ export default function Game2Page() {
           createElement('div', null,
             createElement('p', { className: 'text-[10px] font-bold uppercase tracking-wider', style: { color: colors.subtle } }, 'Company Range'),
             createElement('p', { className: 'text-sm font-bold mt-1', style: { color: colors.text } },
-              `${companyRange.min.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} - ${companyRange.max.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}`
+              `${formatRupeeWords(companyRange.min)} - ${formatRupeeWords(companyRange.max)}`
             )
           ),
           createElement('div', null,
             createElement('p', { className: 'text-[10px] font-bold uppercase tracking-wider', style: { color: colors.subtle } }, 'Market Average'),
             createElement('p', { className: 'text-sm font-bold mt-1', style: { color: colors.text } },
-              marketAverage.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+              formatRupeeWords(marketAverage)
             )
           ),
           createElement('div', null,
@@ -507,7 +810,7 @@ export default function Game2Page() {
           createElement('div', { className: 'flex justify-between items-center border-b pb-4', style: { borderColor: colors.border } },
             createElement('span', { className: 'text-sm font-bold', style: { color: colors.text } }, `Betting Round ${round} of 4`),
             createElement('span', { className: 'text-xs font-semibold px-2 py-0.5 rounded bg-orange-600/10 text-orange-500' },
-              `Starting Offer: ${baseSalary.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}`
+              `Starting Offer: ${formatRupeeWords(baseSalary)}`
             )
           ),
           createElement('div', { className: 'grid gap-6 md:grid-cols-[160px_1fr] items-center p-4 rounded-[1.2rem]', style: { backgroundColor: colors.soft } },
@@ -527,7 +830,7 @@ export default function Game2Page() {
                     rank: 'H',
                     suit: 'â™ ',
                     label: 'HR Proposal',
-                    sublabel: currentHROffer.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+                    sublabel: formatRupeeWords(currentHROffer)
                   })
                 )
               )
@@ -542,7 +845,7 @@ export default function Game2Page() {
               isRoundCompleted && createElement('div', { className: 'pt-2 flex items-center gap-2' },
                 createElement(Coins, { size: 16, className: 'text-green-500' }),
                 createElement('span', { className: 'text-xs font-bold text-green-500' },
-                  `Current Offer: ${currentHROffer.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}`
+                  `Current Offer: ${formatRupeeWords(currentHROffer)}`
                 )
               )
             )
@@ -559,7 +862,7 @@ export default function Game2Page() {
                       rank: details.rank,
                       suit: details.suit,
                       label: details.label,
-                      sublabel: hist.counterAmount ? `$${hist.counterAmount.toLocaleString()}` : undefined
+                      sublabel: hist.counterAmount ? formatRupeeWords(hist.counterAmount) : undefined
                     })
                   ),
                   idx < history.length - 1 && createElement('span', { className: 'text-sm text-gray-500 font-bold' }, '->')
@@ -583,7 +886,7 @@ export default function Game2Page() {
                   rank: move.rank,
                   suit: move.suit,
                   label: move.label,
-                  sublabel: move.type === 'counter' && counterAmountInput ? `$${Number(counterAmountInput).toLocaleString()}` : undefined,
+                  sublabel: move.type === 'counter' && counterAmountInput ? formatRupeeWords(Number(counterAmountInput) * getSalaryMultiplier()) : undefined,
                   selected: isSelected,
                   disabled: isDisabled,
                   dealClass: `card-deal-${idx + 1}`,
@@ -596,13 +899,25 @@ export default function Game2Page() {
               })
             ),
             selectedCardType === 'counter' && createElement('div', { className: 'max-w-xs mx-auto animate-fade-in space-y-2' },
-              createElement('label', { className: 'block text-xs font-semibold text-center uppercase tracking-wider', style: { color: colors.subtle } }, 'Enter Counter Offer Amount ($)'),
+              createElement('label', { className: 'block text-xs font-semibold text-center uppercase tracking-wider', style: { color: colors.subtle } }, `Enter Counter Offer Amount (${salaryUnit})`),
               createElement('input', {
                 type: 'number',
                 value: counterAmountInput,
                 onChange: (e) => setCounterAmountInput((e.target as HTMLInputElement).value),
-                placeholder: 'e.g. 135000',
+                min: 1,
+                placeholder: salaryUnit === 'crore' ? 'e.g. 2.5' : salaryUnit === 'lakh' ? 'e.g. 15' : 'e.g. 900',
                 className: 'h-10 w-full text-center rounded-[0.8rem] border px-4 text-sm outline-none bg-transparent',
+                style: { borderColor: colors.border, color: colors.text }
+              })
+            ),
+            selectedCardType === 'justify' && createElement('div', { className: 'max-w-lg mx-auto animate-fade-in space-y-2' },
+              createElement('label', { className: 'block text-xs font-semibold text-center uppercase tracking-wider', style: { color: colors.subtle } }, 'Add your justification with numbers'),
+              createElement('textarea', {
+                value: justificationText,
+                onChange: (e) => setJustificationText((e.target as HTMLTextAreaElement).value),
+                minLength: 10,
+                placeholder: 'Explain impact, market data, and results. Include at least one number.',
+                className: 'min-h-24 w-full rounded-[0.8rem] border px-4 py-3 text-sm outline-none bg-transparent',
                 style: { borderColor: colors.border, color: colors.text }
               })
             ),
@@ -705,7 +1020,7 @@ export default function Game2Page() {
               rank: cardRank,
               suit: cardSuit,
               label: cardLabel,
-              sublabel: finalSalary > 0 ? `$${finalSalary.toLocaleString()}` : undefined
+              sublabel: finalSalary > 0 ? formatRupeeWords(finalSalary) : undefined
             })
           ),
           createElement('div', { className: 'space-y-6' },
@@ -719,7 +1034,7 @@ export default function Game2Page() {
               createElement('p', { className: 'font-semibold mb-2' }, 'Summary Feedback'),
               createElement('p', { style: { color: colors.text } }, feedback),
               salaryDelta !== 0 && createElement('p', { className: 'mt-3 font-semibold text-green-500' },
-                `Total gain: +${salaryDelta.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} / year`
+                `Total gain: ${formatRupeeWords(salaryDelta)} / year`
               )
             ),
             createElement('div', { className: 'flex gap-3' },
@@ -745,6 +1060,8 @@ export default function Game2Page() {
   return createElement(
     'main',
     { className: 'min-h-screen', style: { background: colors.background } },
+    (loading || playingCard || entryLoading) && createElement(PokerLoadingOverlay, null),
+    warningMessage && createElement(PokerWarningOverlay, { message: warningMessage, onRetry: handleRetryWarning }),
     createElement('div', { className: 'mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8' },
       createElement('header', { className: 'mb-6 rounded-[1.25rem] border p-4 backdrop-blur-xl', style: { backgroundColor: colors.panel, borderColor: colors.border } },
         createElement('div', { className: 'flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between' },

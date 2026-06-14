@@ -69,6 +69,7 @@ export function Game3Provider({ children }: { children: React.ReactNode }) {
       await apiRequest('/api/dashboard/activity', {
         method: 'POST',
         token,
+        suppressErrors: true,
         body: {
           gameKey: 'game3',
           title: 'Articulate Master',
@@ -282,3 +283,4 @@ export const useGame3 = () => {
   if (!context) throw new Error('useGame3 must be used within Game3Provider');
   return context;
 };
+

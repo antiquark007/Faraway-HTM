@@ -86,12 +86,48 @@
   animation: playCard 0.5s ease-in-out forwards;
 }
 
+@keyframes loadingFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(-2deg);
+  }
+}
+
+@keyframes loadingPulse {
+  0%, 100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.loading-card {
+  animation: loadingFloat 1.8s ease-in-out infinite, loadingPulse 2.2s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.loading-card-1 {
+  animation-delay: 0s;
+}
+
+.loading-card-2 {
+  animation-delay: 0.2s;
+}
+
+.loading-card-3 {
+  animation-delay: 0.4s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card-deal-1,
   .card-deal-2,
   .card-deal-3,
   .card-deal-4,
-  .card-played {
+  .card-played,
+  .loading-card {
     animation: none !important;
     transition: none !important;
     transform: none !important;
